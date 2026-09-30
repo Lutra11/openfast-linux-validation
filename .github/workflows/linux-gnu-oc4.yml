@@ -7,11 +7,13 @@ jobs:
   linux-gnu-oc4:
     runs-on: ubuntu-24.04
     timeout-minutes: 110
+    env:
+      OMP_NUM_THREADS: 1
     steps:
-      - name: Install GNU toolchain
+      - name: Install GNU toolchain (official CI mirror, gfortran-14 and ATLAS)
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends gfortran gfortran-13 cmake ninja-build libopenblas-dev
+          sudo apt-get install -y --no-install-recommends gfortran-14 g++-14 gcc-14 cmake ninja-build libatlas-base-dev
 
       - name: Checkout OpenFAST v5.0.0 (tag)
         run: |
@@ -23,14 +25,18 @@ jobs:
           git clone --depth 1 --branch v5.0.0 https://github.com/OpenFAST/r-test.git r-test
           cd r-test && git rev-parse HEAD
 
-      - name: Configure (GNU gfortran, double precision)
+      - name: Configure (GNU gfortran-14, double precision, ATLAS BLAS/LAPACK)
         run: |
           cmake -S openfast -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_Fortran_COMPILER=gfortran-13 \
+            -DCMAKE_Fortran_COMPILER=gfortran-14 \
+            -DCMAKE_CXX_COMPILER=g++-14 \
+            -DCMAKE_C_COMPILER=gcc-14 \
             -DBUILD_SHARED_LIBS=OFF \
             -DDOUBLE_PRECISION=ON \
-            -DBUILD_TESTING=OFF
+            -DBUILD_TESTING=OFF \
+            -DBLAS_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/libcblas.a;/usr/lib/x86_64-linux-gnu/atlas/libatlas.a" \
+            -DLAPACK_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/liblapack.a"
 
       - name: Build openfast target
         run: cmake --build build --target openfast
@@ -39,7 +45,7 @@ jobs:
         run: |
           {
             echo "=== OS ==="; cat /etc/os-release | head -4
-            echo "=== gfortran ==="; gfortran-13 --version | head -1
+            echo "=== gfortran ==="; gfortran-14 --version | head -1
             echo "=== cmake ==="; cmake --version | head -1
             echo "=== OpenFAST commit ==="; git -C openfast rev-parse HEAD
             echo "=== r-test commit ==="; git -C r-test rev-parse HEAD
@@ -49,7 +55,7 @@ jobs:
       - name: Build DISCON shared library (Linux)
         run: |
           cd r-test/glue-codes/openfast/5MW_Baseline/ServoData/DISCON
-          gfortran-13 -shared -fPIC -O2 -std=legacy -o ../DISCON.dll DISCON.F90
+          gfortran-14 -shared -fPIC -O2 -std=legacy -o ../DISCON.dll DISCON.F90
           ls -la ../DISCON.dll
 
       - name: Run 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth (run 1)
