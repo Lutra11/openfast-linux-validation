@@ -25,18 +25,17 @@ jobs:
           git clone --depth 1 --branch v5.0.0 https://github.com/OpenFAST/r-test.git r-test
           cd r-test && git rev-parse HEAD
 
-      - name: Configure (GNU gfortran-14, double precision, ATLAS BLAS/LAPACK)
+      - name: Configure (GNU gfortran-14, double precision, official BLA_VENDOR=ATLAS)
         run: |
           cmake -S openfast -B build -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=RelWithDebInfo \
             -DCMAKE_Fortran_COMPILER=gfortran-14 \
-            -DCMAKE_CXX_COMPILER=g++-14 \
             -DCMAKE_C_COMPILER=gcc-14 \
-            -DBUILD_SHARED_LIBS=OFF \
+            -DCMAKE_CXX_COMPILER=g++-14 \
+            -DBLA_VENDOR=ATLAS \
             -DDOUBLE_PRECISION=ON \
             -DBUILD_TESTING=OFF \
-            -DBLAS_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/libf77blas.a;/usr/lib/x86_64-linux-gnu/atlas/libcblas.a;/usr/lib/x86_64-linux-gnu/atlas/libatlas.a" \
-            -DLAPACK_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/liblapack.a"
+            -DCMAKE_INSTALL_PREFIX=$PWD/build-install
 
       - name: Build openfast target
         run: cmake --build build --target openfast
