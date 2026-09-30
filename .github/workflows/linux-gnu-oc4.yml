@@ -35,7 +35,7 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DDOUBLE_PRECISION=ON \
             -DBUILD_TESTING=OFF \
-            -DBLAS_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/libcblas.a;/usr/lib/x86_64-linux-gnu/atlas/libatlas.a" \
+            -DBLAS_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/libf77blas.a;/usr/lib/x86_64-linux-gnu/atlas/libcblas.a;/usr/lib/x86_64-linux-gnu/atlas/libatlas.a" \
             -DLAPACK_LIBRARIES="/usr/lib/x86_64-linux-gnu/atlas/liblapack.a"
 
       - name: Build openfast target
