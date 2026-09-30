@@ -1,0 +1,82 @@
+name: OpenFAST v5.0.0 Linux/GNU OC4 regression case
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux-gnu-oc4:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 110
+    steps:
+      - name: Install GNU toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends gfortran gfortran-13 cmake ninja-build libopenblas-dev
+
+      - name: Checkout OpenFAST v5.0.0 (tag)
+        run: |
+          git clone --depth 1 --branch v5.0.0 https://github.com/OpenFAST/openfast.git openfast
+          cd openfast && git rev-parse HEAD
+
+      - name: Checkout r-test v5.0.0 (tag)
+        run: |
+          git clone --depth 1 --branch v5.0.0 https://github.com/OpenFAST/r-test.git r-test
+          cd r-test && git rev-parse HEAD
+
+      - name: Configure (GNU gfortran, double precision)
+        run: |
+          cmake -S openfast -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_Fortran_COMPILER=gfortran-13 \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DDOUBLE_PRECISION=ON \
+            -DBUILD_TESTING=OFF
+
+      - name: Build openfast target
+        run: cmake --build build --target openfast
+
+      - name: Record toolchain provenance
+        run: |
+          {
+            echo "=== OS ==="; cat /etc/os-release | head -4
+            echo "=== gfortran ==="; gfortran-13 --version | head -1
+            echo "=== cmake ==="; cmake --version | head -1
+            echo "=== OpenFAST commit ==="; git -C openfast rev-parse HEAD
+            echo "=== r-test commit ==="; git -C r-test rev-parse HEAD
+            echo "=== exe sha256 ==="; sha256sum build/glue-codes/openfast/openfast
+          } > provenance.txt
+
+      - name: Build DISCON shared library (Linux)
+        run: |
+          cd r-test/glue-codes/openfast/5MW_Baseline/ServoData/DISCON
+          gfortran-13 -shared -fPIC -O2 -std=legacy -o ../DISCON.dll DISCON.F90
+          ls -la ../DISCON.dll
+
+      - name: Run 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth (run 1)
+        run: |
+          cd r-test/glue-codes/openfast/5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth
+          "$GITHUB_WORKSPACE/build/glue-codes/openfast/openfast" 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.fst
+          mv 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.outb $GITHUB_WORKSPACE/linux_gnu_run1.outb
+
+      - name: Run (run 2, determinism)
+        run: |
+          cd r-test/glue-codes/openfast/5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth
+          "$GITHUB_WORKSPACE/build/glue-codes/openfast/openfast" 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.fst
+          mv 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.outb $GITHUB_WORKSPACE/linux_gnu_run2.outb
+
+      - name: Run (run 3, determinism)
+        run: |
+          cd r-test/glue-codes/openfast/5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth
+          "$GITHUB_WORKSPACE/build/glue-codes/openfast/openfast" 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.fst
+          mv 5MW_OC4Jckt_DLL_WTurb_WavesIrr_MGrowth.outb $GITHUB_WORKSPACE/linux_gnu_run3.outb
+
+      - name: Package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-gnu-oc4-outputs
+          path: |
+            linux_gnu_run1.outb
+            linux_gnu_run2.outb
+            linux_gnu_run3.outb
+            provenance.txt
+          retention-days: 30
