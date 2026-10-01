@@ -219,8 +219,18 @@ def main() -> None:
     tmax = float(sys.argv[7]) if len(sys.argv) > 7 and sys.argv[7] else 660.0
     # shard slice: deterministic round-robin for even load
     rows = [r for i, r in enumerate(rows) if i % total_shards == shard]
+    # checkpoint dir: per-case result.json inside the workspace, resumable
+    checkpoint_dir = workspace / "r3m5_checkpoints" / manifest_path.stem / f"shard_{shard}"
+    checkpoint_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for row in rows:
+        ckpt = checkpoint_dir / f"{row['case_id']}.json"
+        if ckpt.exists():
+            previous = json.loads(ckpt.read_text(encoding="utf-8"))
+            if previous.get("success"):
+                results.append(previous)
+                print(f"{row['cause_id'] if 'cause_id' in row else row['case_id']}: already done (checkpoint)", flush=True)
+                continue
         case_dir = prepare_case(row, workspace, tmax=tmax)
         start = time.perf_counter()
         process = subprocess.run(
@@ -231,10 +241,11 @@ def main() -> None:
         result = analyze(case_dir, row, elapsed, process.returncode)
         if not result["success"]:
             (case_dir / "openfast_stderr.log").write_text(process.stderr or "", encoding="utf-8")
+        ckpt.write_text(json.dumps(result, indent=1, default=str), encoding="utf-8")
         results.append(result)
         print(f"{row['case_id']}: rc={process.returncode} ok={result['success']} "
               f"wall={elapsed:.0f}s", flush=True)
-    out_path.write_text(json.dumps(results, indent=1, default=str), encoding="utf-8")
+    out_path.write_text(json.dumps(results, skipkeys=True, indent=1, default=str), encoding="utf-8")
     ok = sum(1 for r in results if r["success"])
     print(f"campaign shard {shard}: {ok}/{len(results)} succeeded -> {out_path}", flush=True)
     if ok < len(results):
