@@ -17,15 +17,29 @@ on:
         default: '660'
 
 jobs:
+  gen:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - name: Generate shard index matrix
+        id: m
+        run: |
+          python3 - <<'PY'
+          import json, os
+          n = int("${{ github.event.inputs.shards }}" or "20")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write("matrix=" + json.dumps({"shard": list(range(n))}) + "\n")
+          PY
   campaign:
+    needs: gen
     runs-on: ubuntu-24.04
     timeout-minutes: 360
     env:
       OMP_NUM_THREADS: 1
     strategy:
       fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+      matrix: ${{ fromJSON(needs.gen.outputs.matrix) }}
     steps:
       - name: Checkout tooling repo (scripts + batch manifests)
         uses: actions/checkout@v4
