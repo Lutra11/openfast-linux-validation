@@ -34,7 +34,7 @@ jobs:
         id: has_work
         run: |
           python3 - <<'PY'
-          import json, sys
+          import json, os
           from pathlib import Path
           batch = "${{ github.event.inputs.batch_spec }}"
           shards = int("${{ github.event.inputs.shards }}" or "20")
@@ -43,8 +43,8 @@ jobs:
           rows = rows["cases"] if isinstance(rows, dict) else rows
           mine = [r for i, r in enumerate(rows) if i % shards == shard]
           print(f"shard {shard}/{shards}: {len(mine)} cases")
-          print(f"has_work={'true' if mine else 'false'}" >> $GITHUB_OUTPUT)
-          sys.exit(0)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write("has_work=" + ("true" if mine else "false") + "\n")
           PY
 
       - name: Install GNU toolchain (official CI mirror)
